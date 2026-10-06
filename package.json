@@ -1,0 +1,22 @@
+{
+  "name": "nexameet-fullstack",
+  "version": "1.0.0",
+  "description": "Fullstack Video Conferencing Platform",
+  "main": "Backend/src/app.js",
+  "type": "module",
+  "scripts": {
+    "build": "cd frontend && npm install && npm run build && cd ../Backend && npm install",
+    "start": "cd Backend && npm start",
+    "dev:backend": "cd Backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev"
+  },
+  "keywords": [
+    "webrtc",
+    "video-call",
+    "socketio",
+    "react",
+    "express"
+  ],
+  "author": "NEXAMEET",
+  "license": "ISC"
+}

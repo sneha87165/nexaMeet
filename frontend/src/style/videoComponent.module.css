@@ -1,0 +1,369 @@
+.meetContainerRoot {
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    background-color: #070b14;
+    font-family: 'Inter', 'Roboto', 'Segoe UI', sans-serif;
+    color: #ffffff;
+    position: relative;
+}
+
+/* Floating Emoji Reactions */
+.floatingReactionsContainer {
+    position: absolute;
+    bottom: 90px;
+    left: 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    pointer-events: none;
+    z-index: 100;
+}
+
+.floatingEmojiItem {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    padding: 6px 14px;
+    border-radius: 30px;
+    animation: floatUp 3s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.floatingEmojiText {
+    font-size: 1.6rem;
+}
+
+.floatingEmojiUser {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #38bdf8;
+}
+
+@keyframes floatUp {
+    0% {
+        opacity: 0;
+        transform: translateY(20px) scale(0.8);
+    }
+    15% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+    75% {
+        opacity: 1;
+        transform: translateY(-40px) scale(1.05);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(-80px) scale(0.9);
+    }
+}
+
+/* Lobby Styling (Dark Obsidian) */
+.lobbyContainer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background: radial-gradient(circle at center, #0f172a 0%, #030712 100%);
+    padding: 20px;
+}
+
+.lobbyCard {
+    background: rgba(15, 23, 42, 0.75);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+    padding: 36px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 480px;
+    width: 100%;
+}
+
+.lobbyVideoPreviewWrapper {
+    position: relative;
+    width: 340px;
+    height: 210px;
+    border-radius: 16px;
+    overflow: hidden;
+    background: #020617;
+    margin-bottom: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+}
+
+.lobbyVideoPreview {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.videoOffOverlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #0f172a;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.lobbyControls {
+    display: flex;
+    gap: 14px;
+}
+
+/* Meeting Active Room */
+.meetVideoContainer {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: #070b14;
+}
+
+/* Top Bar */
+.topBar {
+    height: 64px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 24px;
+    background: rgba(11, 17, 32, 0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    z-index: 10;
+}
+
+.roomBadge {
+    display: flex;
+    align-items: center;
+}
+
+/* Video Grid */
+.conferenceGrid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    gap: 16px;
+    padding: 20px;
+    overflow-y: auto;
+    align-content: center;
+    justify-items: center;
+}
+
+.videoTile {
+    position: relative;
+    width: 100%;
+    max-width: 640px;
+    height: 300px;
+    background: #0f172a;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.videoElement {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.localVideoElement {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1); /* Mirror own camera naturally */
+}
+
+
+.avatarPlaceholder {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle, #1e293b 0%, #0f172a 100%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.participantNameBadge {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(8px);
+    color: #f1f5f9;
+    padding: 5px 12px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.handBadge {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+}
+
+/* Bottom Control Bar */
+.bottomControlBar {
+    height: 76px;
+    background: rgba(11, 17, 32, 0.9);
+    backdrop-filter: blur(16px);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    z-index: 10;
+}
+
+/* In-Meeting Chat (Dark Glassmorphic Panel) */
+.chatRoom {
+    position: absolute;
+    top: 64px;
+    right: 0;
+    bottom: 76px;
+    width: 360px;
+    max-width: 90vw;
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(20px);
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    z-index: 20;
+    animation: slideLeft 0.25s ease-out;
+}
+
+@keyframes slideLeft {
+    from {
+        transform: translateX(100%);
+    }
+    to {
+        transform: translateX(0);
+    }
+}
+
+.chatHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 18px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Quick Emoji Bar */
+.chatEmojiBar {
+    display: flex;
+    justify-content: space-around;
+    padding: 8px 16px;
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.quickEmojiBtn {
+    background: none;
+    border: none;
+    font-size: 1.25rem;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 8px;
+    transition: transform 0.15s, background 0.15s;
+}
+
+.quickEmojiBtn:hover {
+    transform: scale(1.25);
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.chattingDisplay {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.messageBubble {
+    padding: 10px 14px;
+    border-radius: 14px;
+    max-width: 85%;
+    word-break: break-word;
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+.messageMeta {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 0.75rem;
+    margin-bottom: 4px;
+    opacity: 0.8;
+}
+
+.myMessage {
+    align-self: flex-end;
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    color: #ffffff;
+    border-bottom-right-radius: 4px;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.theirMessage {
+    align-self: flex-start;
+    background: #1e293b;
+    color: #f1f5f9;
+    border-bottom-left-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.messageText {
+    margin: 0;
+}
+
+.emptyChat {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    color: #64748b;
+    text-align: center;
+    padding: 20px;
+    font-size: 0.9rem;
+}
+
+.chattingArea {
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(11, 17, 32, 0.6);
+}
