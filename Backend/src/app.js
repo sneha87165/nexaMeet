@@ -9,11 +9,13 @@ import userRoutes from "./routes/userRoutes.js";
 
 dotenv.config();
 
-// Set DNS servers to avoid Windows SRV lookup failures
-try {
-    dns.setServers(["8.8.8.8", "1.1.1.1"]);
-} catch (e) {
-    console.warn("DNS server override not available:", e.message);
+// Set DNS servers on Windows to avoid SRV lookup failures
+if (process.platform === "win32") {
+    try {
+        dns.setServers(["8.8.8.8", "1.1.1.1"]);
+    } catch (e) {
+        console.warn("DNS server override not available:", e.message);
+    }
 }
 
 const app = express();
@@ -58,6 +60,7 @@ if (fs.existsSync(frontendDistPath)) {
     // Root health check endpoint when frontend is not bundled
     app.get("/", (req, res) => {
         res.json({ status: "ok", message: "NEXAMEET API is running" });
+    });
 }
  
 // Global Error Handler
