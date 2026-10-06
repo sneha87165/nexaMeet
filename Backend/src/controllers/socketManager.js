@@ -119,6 +119,18 @@ export const connectToSocket = (server) => {
             }
         });
 
+        // Camera / Mic Toggle State Relay
+        socket.on("toggle-media", (data) => {
+            const roomId = socketRoomMap[socket.id];
+            if (roomId) {
+                socket.to(roomId).emit("user-toggle-media", {
+                    socketId: socket.id,
+                    mediaType: data?.mediaType, // 'video' | 'audio'
+                    enabled: !!data?.enabled
+                });
+            }
+        });
+
         // Disconnect Handler
         socket.on("disconnect", () => {
             const roomId = socketRoomMap[socket.id];

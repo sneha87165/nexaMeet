@@ -26,7 +26,7 @@ import PanToolIcon from '@mui/icons-material/PanTool';
 import PeopleIcon from '@mui/icons-material/People';
 import CloseIcon from '@mui/icons-material/Close';
 import SendIcon from '@mui/icons-material/Send';
-import EmojiEmotionsIcon from '@mui/icons-material/EmojiEmotions';
+import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 
 import styles from "../style/videoComponent.module.css";
 import server from '../environment';
@@ -36,11 +36,142 @@ const peerConfigConnections = {
     iceServers: [
         { urls: "stun:stun.l.google.com:19302" },
         { urls: "stun:stun1.l.google.com:19302" },
-        { urls: "stun:stun2.l.google.com:19302" }
+        { urls: "stun:stun2.l.google.com:19302" },
+        { urls: "stun:stun3.l.google.com:19302" },
+        { urls: "stun:stun4.l.google.com:19302" }
     ]
 };
 
 const QUICK_EMOJIS = ["👍", "❤️", "👏", "🎉", "😂", "🔥"];
+
+// Dedicated Remote Video Tile Component for smooth WebRTC playback & state handling
+function RemoteVideoTile({ socketId, stream, participantName, isHandRaised, isVideoOff, isAudioOff, lastUpdated }) {
+    const videoRef = useRef(null);
+    const [hasActiveVideo, setHasActiveVideo] = useState(false);
+    const [autoplayBlocked, setAutoplayBlocked] = useState(false);
+
+    useEffect(() => {
+        const videoEl = videoRef.current;
+        if (!videoEl) return;
+
+        if (stream) {
+            videoEl.srcObject = stream;
+
+            const checkVideoTracks = () => {
+                const videoTracks = stream.getVideoTracks();
+                const activeTrack = videoTracks.find((t) => t.enabled && t.readyState === 'live' && !t.muted);
+                setHasActiveVideo(!!activeTrack && !isVideoOff);
+            };
+
+            checkVideoTracks();
+
+            const playPromise = videoEl.play();
+            if (playPromise !== undefined) {
+                playPromise
+                    .then(() => {
+                        setAutoplayBlocked(false);
+                    })
+                    .catch((err) => {
+                        console.warn(`Autoplay blocked on remote video for ${socketId}:`, err);
+                        setAutoplayBlocked(true);
+                    });
+            }
+
+            const onTrackChange = () => {
+                checkVideoTracks();
+            };
+
+            stream.addEventListener('addtrack', onTrackChange);
+            stream.addEventListener('removetrack', onTrackChange);
+
+            stream.getVideoTracks().forEach((track) => {
+                track.addEventListener('mute', onTrackChange);
+                track.addEventListener('unmute', onTrackChange);
+                track.addEventListener('ended', onTrackChange);
+            });
+
+            return () => {
+                stream.removeEventListener('addtrack', onTrackChange);
+                stream.removeEventListener('removetrack', onTrackChange);
+                stream.getVideoTracks().forEach((track) => {
+                    track.removeEventListener('mute', onTrackChange);
+                    track.removeEventListener('unmute', onTrackChange);
+                    track.removeEventListener('ended', onTrackChange);
+                });
+            };
+        } else {
+            setHasActiveVideo(false);
+        }
+    }, [stream, lastUpdated, isVideoOff]);
+
+    const handleRetryPlay = () => {
+        if (videoRef.current) {
+            videoRef.current.play().then(() => setAutoplayBlocked(false)).catch(console.error);
+        }
+    };
+
+    const showAvatar = !hasActiveVideo || isVideoOff;
+    const initial = (participantName ? participantName.trim()[0] : 'P').toUpperCase();
+
+    return (
+        <div className={styles.videoTile}>
+            <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                className={styles.videoElement}
+                style={{ display: showAvatar ? 'none' : 'block' }}
+            />
+
+            {showAvatar && (
+                <div className={styles.avatarPlaceholder}>
+                    <Avatar
+                        sx={{
+                            width: 88,
+                            height: 88,
+                            fontSize: 36,
+                            bgcolor: '#6366f1',
+                            fontWeight: 'bold',
+                            boxShadow: '0 8px 24px rgba(99, 102, 241, 0.4)'
+                        }}
+                    >
+                        {initial}
+                    </Avatar>
+                    <Typography variant="body2" sx={{ color: '#94a3b8', mt: 1.5, fontWeight: 500 }}>
+                        {participantName} {isVideoOff ? '(Camera Off)' : ''}
+                    </Typography>
+                </div>
+            )}
+
+            {autoplayBlocked && (
+                <Button
+                    size="small"
+                    variant="contained"
+                    startIcon={<VolumeUpIcon />}
+                    onClick={handleRetryPlay}
+                    sx={{
+                        position: 'absolute',
+                        top: 12,
+                        right: 12,
+                        bgcolor: 'rgba(37, 99, 235, 0.9)',
+                        color: 'white',
+                        fontSize: '0.75rem',
+                        textTransform: 'none',
+                        zIndex: 10
+                    }}
+                >
+                    Enable Audio
+                </Button>
+            )}
+
+            <div className={styles.participantNameBadge}>
+                <span>{participantName}</span>
+                {isAudioOff && <span style={{ color: '#ef4444', fontSize: '0.8rem' }} title="Microphone muted">🔇</span>}
+                {isHandRaised && <span className={styles.handBadge}>✋ Hand Raised</span>}
+            </div>
+        </div>
+    );
+}
 
 export default function VideoMeet() {
     const { url: meetingUrl } = useParams();
@@ -68,7 +199,6 @@ export default function VideoMeet() {
     const [reactions, setReactions] = useState([]); // [{ id, emoji, username }]
 
     const [showChat, setShowChat] = useState(false);
-    const [showReactionsMenu, setShowReactionsMenu] = useState(false);
     const [messages, setMessages] = useState([]);
     const [message, setMessage] = useState("");
     const [unreadMessages, setUnreadMessages] = useState(0);
@@ -78,8 +208,9 @@ export default function VideoMeet() {
         return userData?.name || userData?.username || localStorage.getItem("temp_username") || "";
     });
 
-    const [remoteVideos, setRemoteVideos] = useState([]); // [{ socketId, stream, username }]
+    const [remoteVideos, setRemoteVideos] = useState([]); // [{ socketId, stream, lastUpdated }]
     const [participantNames, setParticipantNames] = useState({}); // socketId -> username
+    const [peerMediaStatus, setPeerMediaStatus] = useState({}); // socketId -> { isVideoOff, isAudioOff }
     const [participantCount, setParticipantCount] = useState(1);
     const [snackbarMsg, setSnackbarMsg] = useState("");
     const [snackbarOpen, setSnackbarOpen] = useState(false);
@@ -102,7 +233,7 @@ export default function VideoMeet() {
     useEffect(() => {
         if (!inLobby && localVideoRef.current && localStreamRef.current) {
             localVideoRef.current.srcObject = localStreamRef.current;
-            localVideoRef.current.play().catch((e) => console.log("Video play:", e));
+            localVideoRef.current.play().catch((e) => console.log("Local video play:", e));
         }
     }, [inLobby, videoEnabled]);
 
@@ -121,37 +252,48 @@ export default function VideoMeet() {
             });
             localStreamRef.current = stream;
 
-            if (lobbyVideoRef.current) {
-                lobbyVideoRef.current.srcObject = stream;
-            }
-            if (localVideoRef.current) {
-                localVideoRef.current.srcObject = stream;
-            }
+            if (lobbyVideoRef.current) lobbyVideoRef.current.srcObject = stream;
+            if (localVideoRef.current) localVideoRef.current.srcObject = stream;
 
             setVideoAvailable(true);
             setAudioAvailable(true);
             setVideoEnabled(true);
             setAudioEnabled(true);
+            return stream;
         } catch (err) {
-            console.warn("Could not get both video and audio permissions:", err);
+            console.warn("Could not get both video and audio permissions simultaneously:", err);
+            let combinedStream = null;
+
             try {
-                const videoOnly = await navigator.mediaDevices.getUserMedia({ video: true });
-                localStreamRef.current = videoOnly;
-                if (lobbyVideoRef.current) lobbyVideoRef.current.srcObject = videoOnly;
-                if (localVideoRef.current) localVideoRef.current.srcObject = videoOnly;
+                const videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                combinedStream = videoStream;
                 setVideoAvailable(true);
-                setAudioAvailable(false);
+                setVideoEnabled(true);
             } catch (vErr) {
+                console.warn("Camera unavailable:", vErr);
                 setVideoAvailable(false);
+                setVideoEnabled(false);
             }
 
             try {
-                const audioOnly = await navigator.mediaDevices.getUserMedia({ audio: true });
-                if (!localStreamRef.current) localStreamRef.current = audioOnly;
+                const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                if (combinedStream) {
+                    audioStream.getAudioTracks().forEach((track) => combinedStream.addTrack(track));
+                } else {
+                    combinedStream = audioStream;
+                }
                 setAudioAvailable(true);
+                setAudioEnabled(true);
             } catch (aErr) {
+                console.warn("Microphone unavailable:", aErr);
                 setAudioAvailable(false);
+                setAudioEnabled(false);
             }
+
+            localStreamRef.current = combinedStream;
+            if (lobbyVideoRef.current) lobbyVideoRef.current.srcObject = combinedStream;
+            if (localVideoRef.current) localVideoRef.current.srcObject = combinedStream;
+            return combinedStream;
         }
     };
 
@@ -182,7 +324,7 @@ export default function VideoMeet() {
         setUsername(finalName);
         localStorage.setItem("temp_username", finalName);
 
-        // If local stream is missing, try acquiring before joining
+        // If local stream is missing or empty, acquire media before joining
         if (!localStreamRef.current || localStreamRef.current.getTracks().length === 0) {
             await initMediaStream();
         }
@@ -192,9 +334,15 @@ export default function VideoMeet() {
     };
 
     const createPeerConnection = (peerId) => {
+        if (connectionsRef.current[peerId]) {
+            return connectionsRef.current[peerId];
+        }
+
         const peerConnection = new RTCPeerConnection(peerConfigConnections);
         connectionsRef.current[peerId] = peerConnection;
-        queuedCandidatesRef.current[peerId] = [];
+        if (!queuedCandidatesRef.current[peerId]) {
+            queuedCandidatesRef.current[peerId] = [];
+        }
 
         peerConnection.onicecandidate = (event) => {
             if (event.candidate && socketRef.current) {
@@ -203,17 +351,32 @@ export default function VideoMeet() {
         };
 
         peerConnection.ontrack = (event) => {
-            const stream = event.streams[0];
+            console.log(`Received remote track from ${peerId}: kind=${event.track.kind}`);
+            let remoteStream = event.streams && event.streams[0];
+            if (!remoteStream) {
+                remoteStream = new MediaStream([event.track]);
+            }
+
             setRemoteVideos((prev) => {
-                const exists = prev.find((v) => v.socketId === peerId);
-                if (exists) {
-                    return prev.map((v) => (v.socketId === peerId ? { ...v, stream } : v));
+                const existsIndex = prev.findIndex((v) => v.socketId === peerId);
+                if (existsIndex >= 0) {
+                    const currentStream = prev[existsIndex].stream;
+                    if (currentStream && !currentStream.getTracks().some((t) => t.id === event.track.id)) {
+                        currentStream.addTrack(event.track);
+                    }
+                    const updated = [...prev];
+                    updated[existsIndex] = {
+                        ...updated[existsIndex],
+                        stream: currentStream || remoteStream,
+                        lastUpdated: Date.now()
+                    };
+                    return updated;
                 }
-                return [...prev, { socketId: peerId, stream }];
+                return [...prev, { socketId: peerId, stream: remoteStream, lastUpdated: Date.now() }];
             });
         };
 
-        // Add local tracks if available, otherwise transceivers for receiving remote media
+        // Add local tracks if available
         if (localStreamRef.current && localStreamRef.current.getTracks().length > 0) {
             localStreamRef.current.getTracks().forEach((track) => {
                 peerConnection.addTrack(track, localStreamRef.current);
@@ -242,6 +405,7 @@ export default function VideoMeet() {
             socketRef.current.on('chat-message', handleIncomingMessage);
             socketRef.current.on('user-raised-hand', handleHandRaisedEvent);
             socketRef.current.on('reaction-received', handleReactionReceived);
+            socketRef.current.on('user-toggle-media', handlePeerToggleMedia);
 
             socketRef.current.on('user-left', (peerSocketId, leftUserName) => {
                 if (connectionsRef.current[peerSocketId]) {
@@ -252,6 +416,11 @@ export default function VideoMeet() {
 
                 setRemoteVideos((prev) => prev.filter((v) => v.socketId !== peerSocketId));
                 setParticipantNames((prev) => {
+                    const next = { ...prev };
+                    delete next[peerSocketId];
+                    return next;
+                });
+                setPeerMediaStatus((prev) => {
                     const next = { ...prev };
                     delete next[peerSocketId];
                     return next;
@@ -340,6 +509,17 @@ export default function VideoMeet() {
         }
     };
 
+    const handlePeerToggleMedia = (data) => {
+        if (!data || !data.socketId) return;
+        setPeerMediaStatus((prev) => ({
+            ...prev,
+            [data.socketId]: {
+                ...prev[data.socketId],
+                [data.mediaType === 'video' ? 'isVideoOff' : 'isAudioOff']: !data.enabled
+            }
+        }));
+    };
+
     const handleIncomingMessage = (data, sender, senderSocketId, timestamp) => {
         setMessages((prev) => [
             ...prev,
@@ -378,15 +558,18 @@ export default function VideoMeet() {
     const sendReaction = (emoji) => {
         if (!socketRef.current) return;
         socketRef.current.emit("send-reaction", { username, emoji });
-        setShowReactionsMenu(false);
     };
 
     const toggleVideo = () => {
         if (localStreamRef.current) {
             const videoTrack = localStreamRef.current.getVideoTracks()[0];
             if (videoTrack) {
-                videoTrack.enabled = !videoTrack.enabled;
-                setVideoEnabled(videoTrack.enabled);
+                const nextState = !videoTrack.enabled;
+                videoTrack.enabled = nextState;
+                setVideoEnabled(nextState);
+                if (socketRef.current) {
+                    socketRef.current.emit("toggle-media", { mediaType: "video", enabled: nextState });
+                }
             }
         }
     };
@@ -395,8 +578,12 @@ export default function VideoMeet() {
         if (localStreamRef.current) {
             const audioTrack = localStreamRef.current.getAudioTracks()[0];
             if (audioTrack) {
-                audioTrack.enabled = !audioTrack.enabled;
-                setAudioEnabled(audioTrack.enabled);
+                const nextState = !audioTrack.enabled;
+                audioTrack.enabled = nextState;
+                setAudioEnabled(nextState);
+                if (socketRef.current) {
+                    socketRef.current.emit("toggle-media", { mediaType: "audio", enabled: nextState });
+                }
             }
         }
     };
@@ -479,6 +666,9 @@ export default function VideoMeet() {
         return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     };
 
+    // Construct participant list ensuring every connected peer is represented in the grid
+    const peerSocketIds = Object.keys(participantNames).filter((id) => id !== socketIdRef.current);
+
     return (
         <div className={styles.meetContainerRoot}>
             {/* Floating Live Reactions */}
@@ -513,6 +703,7 @@ export default function VideoMeet() {
                                 muted
                                 playsInline
                                 className={styles.lobbyVideoPreview}
+                                style={{ display: videoEnabled ? 'block' : 'none' }}
                             />
                             {!videoEnabled && (
                                 <div className={styles.videoOffOverlay}>
@@ -631,52 +822,57 @@ export default function VideoMeet() {
                         {/* Local User Tile */}
                         <div className={styles.videoTile}>
                             <video
-                                ref={(el) => {
-                                    localVideoRef.current = el;
-                                    if (el && localStreamRef.current && el.srcObject !== localStreamRef.current) {
-                                        el.srcObject = localStreamRef.current;
-                                    }
-                                }}
+                                ref={localVideoRef}
                                 autoPlay
                                 muted
                                 playsInline
                                 className={styles.localVideoElement}
+                                style={{ display: videoEnabled ? 'block' : 'none' }}
                             />
                             {!videoEnabled && (
                                 <div className={styles.avatarPlaceholder}>
-                                    <Avatar sx={{ width: 80, height: 80, fontSize: 32, bgcolor: '#2563eb', fontWeight: 'bold' }}>
+                                    <Avatar
+                                        sx={{
+                                            width: 88,
+                                            height: 88,
+                                            fontSize: 36,
+                                            bgcolor: '#2563eb',
+                                            fontWeight: 'bold',
+                                            boxShadow: '0 8px 24px rgba(37, 99, 235, 0.4)'
+                                        }}
+                                    >
                                         {username ? username[0].toUpperCase() : 'Me'}
                                     </Avatar>
+                                    <Typography variant="body2" sx={{ color: '#94a3b8', mt: 1.5, fontWeight: 500 }}>
+                                        {username} (You - Camera Off)
+                                    </Typography>
                                 </div>
                             )}
                             <div className={styles.participantNameBadge}>
                                 <span>{username} (You)</span>
+                                {!audioEnabled && <span style={{ color: '#ef4444', fontSize: '0.8rem' }} title="Microphone muted">🔇</span>}
                                 {isHandRaised && <span className={styles.handBadge}>✋ Hand Raised</span>}
                             </div>
                         </div>
 
                         {/* Remote Participants Tiles */}
-                        {remoteVideos.map((video) => {
-                            const peerHandRaised = raisedHands[video.socketId];
-                            const peerName = participantNames[video.socketId] || `Participant (${video.socketId.slice(0, 4)})`;
+                        {peerSocketIds.map((peerId) => {
+                            const peerStreamObj = remoteVideos.find((v) => v.socketId === peerId);
+                            const peerName = participantNames[peerId] || `Participant (${peerId.slice(0, 4)})`;
+                            const peerHandRaised = raisedHands[peerId];
+                            const mediaStatus = peerMediaStatus[peerId] || {};
+
                             return (
-                                <div key={video.socketId} className={styles.videoTile}>
-                                    <video
-                                        ref={(el) => {
-                                            if (el && video.stream && el.srcObject !== video.stream) {
-                                                el.srcObject = video.stream;
-                                                el.play().catch((e) => console.log("Remote play error:", e));
-                                            }
-                                        }}
-                                        autoPlay
-                                        playsInline
-                                        className={styles.videoElement}
-                                    />
-                                    <div className={styles.participantNameBadge}>
-                                        <span>{peerName}</span>
-                                        {peerHandRaised && <span className={styles.handBadge}>✋ Hand Raised</span>}
-                                    </div>
-                                </div>
+                                <RemoteVideoTile
+                                    key={peerId}
+                                    socketId={peerId}
+                                    stream={peerStreamObj ? peerStreamObj.stream : null}
+                                    lastUpdated={peerStreamObj ? peerStreamObj.lastUpdated : null}
+                                    participantName={peerName}
+                                    isHandRaised={peerHandRaised}
+                                    isVideoOff={!!mediaStatus.isVideoOff}
+                                    isAudioOff={!!mediaStatus.isAudioOff}
+                                />
                             );
                         })}
                     </div>
