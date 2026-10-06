@@ -58,14 +58,19 @@ if (fs.existsSync(frontendDistPath)) {
     // Root health check endpoint when frontend is not bundled
     app.get("/", (req, res) => {
         res.json({ status: "ok", message: "NEXAMEET API is running" });
-    });
 }
+ 
+// Global Error Handler
+app.use((err, req, res, next) => {
+    console.error("Global express error:", err);
+    res.status(500).json({ message: err.message || "Internal server error" });
+});
 
 // MongoDB Connection with Smart Fallback & Non-blocking Startup
 const start = async () => {
     const port = app.get("port");
     
-    server.listen(port, () => {
+    server.listen(port, "0.0.0.0", () => {
         console.log(`🚀 NEXAMEET Server listening on port ${port}`);
     });
 
